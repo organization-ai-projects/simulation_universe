@@ -16,31 +16,33 @@ pub struct Voxel {
     pub material: VoxelMaterial,
     pub temperature: f32,
     pub density: f32,
+    pub nutrients: f32, // Ajout des nutriments
 }
 
 impl Voxel {
-    pub fn new(material: VoxelMaterial, temperature: f32, density: f32) -> Self {
+    pub fn new(material: VoxelMaterial, temperature: f32, density: f32, nutrients: f32) -> Self {
         Self {
             material,
             temperature,
             density,
+            nutrients,
         }
     }
 
     pub fn air() -> Self {
-        Self::new(VoxelMaterial::Air, 20.0, 0.0)
+        Self::new(VoxelMaterial::Air, 20.0, 0.0, 0.0)
     }
 
     pub fn rock() -> Self {
-        Self::new(VoxelMaterial::Rock, 15.0, 2.5)
+        Self::new(VoxelMaterial::Rock, 15.0, 2.5, 0.0)
     }
 
     pub fn soil() -> Self {
-        Self::new(VoxelMaterial::Soil, 18.0, 1.2)
+        Self::new(VoxelMaterial::Soil, 18.0, 1.2, 10.0) // Ajout de nutriments par défaut pour le sol
     }
 
     pub fn water() -> Self {
-        Self::new(VoxelMaterial::Water, 10.0, 1.0)
+        Self::new(VoxelMaterial::Water, 10.0, 1.0, 5.0) // Ajout de nutriments par défaut pour l'eau
     }
 }
 
@@ -79,7 +81,9 @@ impl World3D {
     }
 
     pub fn is_valid(&self, x: i32, y: i32, z: i32) -> bool {
-        x >= 0 && y >= 0 && z >= 0
+        x >= 0
+            && y >= 0
+            && z >= 0
             && x < self.width as i32
             && y < self.height as i32
             && z < self.depth as i32
@@ -106,8 +110,7 @@ impl World3D {
                     // Top 30% is air with occasional water (oceans)
                     else {
                         // Create water "oceans" in some regions
-                        let is_ocean = (x < width / 4 || x > width * 3 / 4)
-                            && z < depth * 75 / 100;
+                        let is_ocean = (x < width / 4 || x > width * 3 / 4) && z < depth * 75 / 100;
 
                         if is_ocean {
                             *voxel = Voxel::water();
