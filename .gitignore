@@ -1,0 +1,28 @@
+# Compiled output
+/target/
+
+# Rust/Cargo specific
+**/*.rs.bk
+**/*.d
+**/*.rlib
+**/*.rmeta
+
+# IDEs and editors
+/.idea/
+*.iml
+*.sublime-workspace
+*.sublime-project
+.vscode/
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.swp
+*.swo
+*.bak
+*.old
+*.orig
+.DS_Store
+Thumbs.db
