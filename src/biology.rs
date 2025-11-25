@@ -1,4 +1,4 @@
-use crate::world3d::{World3D, VoxelMaterial};
+use crate::world3d::{VoxelMaterial, World3D};
 use rand::Rng;
 
 #[derive(Clone)]
@@ -50,55 +50,94 @@ pub fn step_biology(
     populations: &mut Vec<Population>,
 ) {
     let mut rng = rand::thread_rng();
-    let mut new_populations = Vec::new();
+    let mut new_populations: Vec<Population> = Vec::new();
+
+    // Fusionner les populations proches sur le même voxel
+    let mut population_map = std::collections::HashMap::new();
+
+    // Ajouter les populations existantes au map
+    for pop in populations.iter() {
+        let key = (pop.x, pop.y, pop.z, pop.species_id);
+        population_map
+            .entry(key)
+            .and_modify(|existing_size| *existing_size += pop.size)
+            .or_insert(pop.size);
+    }
+
+    // Ajouter les nouvelles populations au map
+    for pop in new_populations.iter() {
+        let key = (pop.x, pop.y, pop.z, pop.species_id);
+        population_map
+            .entry(key)
+            .and_modify(|existing_size| *existing_size += pop.size)
+            .or_insert(pop.size);
+    }
+
+    // Reconstruire la liste des populations
+    populations.clear();
+    for ((x, y, z, species_id), size) in population_map {
+        populations.push(Population::new(species_id, x, y, z, size));
+    }
 
     populations.retain_mut(|pop| {
-        // Find the species
+        // Trouver l'espèce correspondant à cette population
         let species = species_list.iter().find(|s| s.id == pop.species_id);
         if species.is_none() {
             return false;
         }
         let species = species.unwrap();
 
-        // Check if position is valid
+        // Vérifier si la position est valide dans le monde
         if pop.x >= world.width || pop.y >= world.height || pop.z >= world.depth {
             return false;
         }
 
-        // Get the voxel at this population's location
-        let voxel = world.get(pop.x, pop.y, pop.z);
+        // Récupérer le voxel correspondant à la position de la population
+        let voxel_index = world.index(pop.x, pop.y, pop.z);
+        let voxel = &mut world.voxels[voxel_index];
 
-        // Check if the material is suitable for life
+        // Vérifier si le matériau du voxel est adapté à la vie
         let suitable_material = matches!(
             voxel.material,
             VoxelMaterial::Soil | VoxelMaterial::Water | VoxelMaterial::Organic(_)
         );
 
         if !suitable_material {
+            // Réduire la taille de la population si le matériau est inadapté
             pop.size = pop.size.saturating_sub(5);
             return pop.size > 0;
         }
 
-        // Temperature compatibility
+        // Calculer la compatibilité de la température avec l'espèce
         let temp_diff = (voxel.temperature - species.preferred_temperature).abs();
         let temp_factor = if temp_diff < 5.0 {
-            1.2 // Good conditions
+            1.2 // Conditions idéales
         } else if temp_diff < 10.0 {
-            1.0 // Neutral
+            1.0 // Conditions neutres
         } else {
-            0.8 // Harsh conditions
+            0.8 // Conditions difficiles
         };
 
-        // Update population size
+        // Limiter la croissance en fonction de la capacité de charge locale
+        let carrying_capacity = (voxel.nutrients * 10.0) as u32;
+        if pop.size > carrying_capacity {
+            pop.size = pop.size.saturating_sub((pop.size - carrying_capacity) / 10);
+        }
+
+        // Calculer la croissance de la population
         let growth_rate = species.reproduction_rate * temp_factor;
         let growth = (pop.size as f32 * growth_rate) as i32;
         pop.size = (pop.size as i32 + growth).max(0) as u32;
 
-        // Apply metabolism cost
+        // Appliquer le coût métabolique
         let metabolic_cost = (pop.size as f32 * species.metabolism * 0.01) as u32;
         pop.size = pop.size.saturating_sub(metabolic_cost);
 
-        // Maybe move to a neighboring voxel
+        // Consommer les nutriments du voxel
+        let nutrient_consumption = pop.size as f32 * 0.1;
+        voxel.nutrients = (voxel.nutrients - nutrient_consumption).max(0.0);
+
+        // Déplacer la population vers un voxel voisin avec une certaine probabilité
         if rng.gen::<f32>() < species.mobility * 0.1 {
             let directions = [
                 (-1i32, 0i32, 0i32),
@@ -114,10 +153,17 @@ pub fn step_biology(
             let new_y = pop.y as i32 + dy;
             let new_z = pop.z as i32 + dz;
 
-            if world.is_valid(new_x, new_y, new_z) {
-                // Split population: half stays, half moves
+            // Vérifier si la nouvelle position est valide
+            if new_x >= 0
+                && new_y >= 0
+                && new_z >= 0
+                && new_x < world.width as i32
+                && new_y < world.height as i32
+                && new_z < world.depth as i32
+            {
+                // Diviser la population : une partie reste, l'autre se déplace
                 let moving_size = pop.size / 2;
-                if moving_size > 0 {
+                if moving_size > 10 {
                     pop.size -= moving_size;
                     new_populations.push(Population::new(
                         pop.species_id,
@@ -130,14 +176,14 @@ pub fn step_biology(
             }
         }
 
-        // Mark voxels with large populations as Organic
+        // Marquer les voxels avec de grandes populations comme Organic
         if pop.size > 100 {
-            let voxel = world.get_mut(pop.x, pop.y, pop.z);
             voxel.material = VoxelMaterial::Organic((pop.size / 100).min(255) as u8);
         }
 
         pop.size > 0
     });
 
+    // Ajouter les nouvelles populations générées
     populations.extend(new_populations);
 }
