@@ -95,7 +95,7 @@ dependencies = [
 
 [[package]]
 name = "temporal_god_sim_3d"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "rand",
 ]
