@@ -14,3 +14,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Changed
 
 - Improved comments and resolved borrowing conflicts in the `biology` module code.
+## [0.1.0] - 2025-11-25
+
+### Added
+
+- Initial release of the simulation universe project.
+- Core modules: `biology`, `physics`, `world3d`, `time_sim`, and `god`.
+- Basic structure and functionality for the simulation.
